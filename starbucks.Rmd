@@ -1,0 +1,985 @@
+---
+title: "Report on the Nutrition of Starbucks Drinks"
+author: "Anton Ngan"
+output:
+    flexdashboard::flex_dashboard:
+        vertical_layout: scroll
+        orientation: rows
+        source_code: embed
+        theme: 
+          version: 4
+          bootswatch: simplex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE
+  )
+library(flexdashboard)
+library(tidyverse)
+library(ggplot2)
+library(naniar)
+library(plotly)
+library(knitr)
+library(kableExtra)
+library(broom)
+library(psych)
+library(scales)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introduction
+===================================== 
+
+
+
+Row 
+------------------------------------
+
+### **Introduction**
+
+The [dataset][datasetsource] has been provided as part of the TidyTuesday weekly 
+social data project where the objective is to make learning to work with data 
+easier, by providing real-world datasets.  
+
+In the past decade or so, there has been a surge in the popularity of bubble tea, 
+smoothies and coffee drinks across Australia. We see that brands like Gonga Cha, 
+Chatime, Boost and Starbucks are starting to pop up everywhere we go. Wherever 
+we go, there is always a long queue of people waiting to order their drinks and 
+a crowd ready to receive their drinks. 
+
+Although, have you ever wondered how healthy the drinks really are? Sometimes, 
+these brands offer healthier alternatives or options to decrease the amount of 
+sugar in your drinks. This means there are lower calories, reduced sugar, high 
+fiber and less carbohydrates in you drinks. So the question to ask now is how 
+healthy are the drinks offered by these brands? What nutritional components
+do they contain? and by how much? 
+
+Specifically, here we would be examining the nutritional information on Starbucks 
+drinks. We will first ask ourselves two questions about the nutrition of Starbucks 
+drinks and explore these questions individually using the dataset. The dataset 
+has been collected from the *Starbucks Coffee Company* Beverage Nutrition 
+Information. The dataset includes the product name, size of drinks (name & mL) 
+and nutrition facts about the drinks which includes:
+
+* Amount of calories
+* Level of fat (total, saturated & trans),
+* Cholesterol, 
+* Carbohydrates
+* Fiber
+* Sugars
+* Sodium
+* Caffeine
+
+The one major limitation from this dataset is that this is the expected 
+nutrition of the drinks, which means that there might be a difference
+in the nutrition content of the drinks we actually order compared to the ones 
+listed in this dataset. We are unsure on the significance of this difference.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Questions & Rationale
+===================================== 
+
+
+
+Row 
+------------------------------------
+### **Research Questions**
+
+> **`r text_spec("Q1: How do Starbucks beverages vary in calories and key nutrients?", color = "red")`**
+
+**`r text_spec("Learning Outcome", color = "red")`** &nbsp;  
+Understand the range and variability of nutritional content in Starbuck drinks. 
+Identify specific drinks and types of drinks with notable nutrient profiles. 
+This learning outcome is achieved by answering the subquestions listed here:
+
+&nbsp;  
+
+*`r text_spec("What is the distribution of calories in Starbucks drinks?", color = "red")`* &nbsp;  
+Use the calories data of each drink to plot a histogram of calories of Starbuck 
+drinks.  
+
+*`r text_spec("How do the nutrition levels vary in these drinks?", color = "red")`* &nbsp;  
+Take all the nutrition facts data and create a summary for each of these nutrition 
+components. The summary should display the mean, median, minimum, maximum, 
+standard deviation, 25th quartile and 75th quartile of each nutrition component. 
+
+*`r text_spec("How does nutrition vary between Starbucks drink size?", color = "red")`* &nbsp;  
+Take all the nutrition facts data and create a boxplot (using the size data as 
+our explanatory variable) for each of these nutrition components.
+
+*`r text_spec("What is the relationship between the amount of calories and the nutritional content in the drinks?", color = "red")`* &nbsp;  
+Create a multivariate linear regression model which captures the effects of the 
+other nutrition components on calories. 
+
+*`r text_spec("Are there specific types of drinks that stand out in terms of being lower or higher in calories?", color = "red")`* &nbsp;  
+Sort the data according to the amount of calories of each and the find the 
+highest and lowest 10 drinks.
+
+&nbsp;
+
+
+***
+
+
+> **`r text_spec("Q2: How does the choice of milk and whipped cream affect nutritional content of drinks?", color = "red")`**
+
+**`r text_spec("Learning Outcome", color = "red")`** &nbsp;  
+Explore the impact of diverse milk types on the nutritional composition of 
+Starbucks drinks. Identify whether certain milk alternatives contribute to 
+healthier options. Understand the influence of whip cream on the overall 
+nutritional profile of drinks. This learning outcome is achieved by answering 
+the subquestions listed here:  
+
+&nbsp;
+
+*`r text_spec("How does the presence of whip cream impact the calorie content and other nutritional components?", color = "red")`* &nbsp;  
+Take all the nutrition facts data and create a boxplot (using the whip data as 
+our explanatory variable) for each of these nutrition components. Also use the
+calorie data and whip data to create a bivariate linear regression model.
+
+*`r text_spec("Which types of milk are associated with lower calorie and healthier options?", color = "red")`* &nbsp;  
+Create a multivariate linear regression model which captures the effects of the 
+milk types on calories. The variables in this model are dummy variables and 
+hence we will have to elect "no milk" to be the base category and exclude it 
+from the model to avoid perfect multicollinearity. 
+
+*`r text_spec("How do different types of milk impact the nutritional content of Starbucks drinks?", color = "red")`* &nbsp;  
+Take all the nutrition facts data and create a boxplot (using the milk data as 
+our explanatory variable) for each of these nutrition components.
+
+&nbsp;
+
+
+
+```{r read-data, message=FALSE}
+raw_starbucks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-12-21/starbucks.csv')
+```
+
+
+
+Row 
+------------------------------------
+
+### **Missing Values** &nbsp;  
+Before we start to analyse our data, we will need to examine and clean up any 
+missing values in our raw dataset.Here we find that there are `r raw_starbucks |> n_miss()` 
+missing values within the dataset, so we do not need to clean up for missing values.
+
+
+
+Row 
+------------------------------------  
+
+### **Data Description**  &nbsp;  
+The dataset contains `r nrow(raw_starbucks)` observations and `r ncol(raw_starbucks)` 
+variables. The dataset contains the Starbuck drink name; drink size; milk type 
+used; whether or not whipped cream was added or not; and nutrition fact. 
+Nutrition fact includes:
+
+* Calories (KCal)
+* Total Fat (g)
+* Saturated Fat (g)
+* Trans Fat (g)
+* Cholesterol (mg)
+* Sodium (mg)
+* Total Carbs (g)
+* Fiber (g)
+* Sugar (g)
+* Caffeine (mg)
+
+There are `r n_distinct(raw_starbucks$product_name)` Starbuck drinks in this 
+dataset. The values of the `whip` variable are encoded in binary 0 and 1 to 
+represent whip not added and whip added to the drink, respectively. Additionally, 
+the values `milk` variable are encoded from 0 to 5 to represent the milk type 
+added into the drink. 
+
+
+
+Row 
+------------------------------------  
+
+### **Data Cleaning**  &nbsp;  
+Most of the data types are already formatted correctly. However variables 
+`trans_fat_g` and `fiber_g` are character types, when they should instead be
+formatted as numeric types. Therefore, we will have to convert `trans_fat_g` and 
+`fiber_g` into numerics. The `whip` variable is a binary variable binary which 
+means that its values are either 0 or 1, so we should change its type from 
+character to logical. 
+
+```{r type-cleaning, message=FALSE}
+type_starbucks <- raw_starbucks |> mutate(trans_fat_g = as.numeric(trans_fat_g)) |> 
+                                      mutate(fiber_g = as.numeric(fiber_g)) |> 
+                                        mutate(whip = as.logical(whip))
+```
+
+An examination of the sizes of the Starbucks drinks shows that it includes the 
+number of shots added to the drinks (e.g., solo, doppio, triple, etc.). 
+
+``` {r echo=FALSE}
+unique(raw_starbucks$size)
+```
+
+We are not interested in the number of expresso shots added into the drinks 
+because we are mainly interested in the actual sizes (i.e., short, tall, grande, 
+venti & trenta) of the drinks. So we will remove observations containing the 
+sizes solo, doppio, triple, quad, 1 scoop, 1 shot from our dataset. After this, 
+we can transform the sizes into the factor type and order them accordingly via the
+level property of the factor type.
+
+``` {r remove-size}
+size_level <- c("short", "tall", "grande", "venti", "trenta")
+
+updated_size_starbucks <- type_starbucks |> filter(size %in% c("short","tall","grande","venti","trenta")) |> 
+                              mutate(size = factor(size, levels=size_level))
+```
+
+The `milk` variable is currently a double type and its values ranges from 1-5 
+where each number represents a milk type:
+
+* 0 = No milk
+* 1 = No fat
+* 2 = 2% milk (reduced-fat milk)
+* 3 = Soy milk
+* 4 = Coconut milk
+* 5 = Whole milk (regular milk)
+
+Therefore we will perform a mapping from these numeric values to these characters. 
+After that, we turn `milk` from a character to a factor type and order them 
+accordingly via the level property of the factor type such that "no milk" is 
+first in the level. We decode the number 0-5, so that our analysis will be easier
+down the line. Hence, we have cleaned our dataset and are now ready to explore and 
+model our data. 
+
+``` {r milk-type}
+milk_level <- c("no_milk","nonfat","2%_fat","soy","coconut","whole")
+
+milk_typ_starbucks <- updated_size_starbucks |> mutate(milk = case_when(
+  milk == 0 ~ "no_milk",
+  milk == 1 ~ "nonfat",
+  milk == 2 ~ "2%_fat",
+  milk == 3 ~ "soy",
+  milk == 4 ~ "coconut",
+  milk == 5 ~ "whole",
+  )) |> mutate(milk = factor(milk, level=milk_level))
+
+size_level <- c("short", "tall", "grande", "venti", "trenta")
+
+clean_starbucks <- milk_typ_starbucks
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Question 1
+===================================== 
+
+
+
+
+Row
+------------------------------------
+###  **Distribution of Calories of Starbucks Drinks**
+```{r distribution-cal}
+distribution_cal <- clean_starbucks |> ggplot(aes(x=calories)) +
+                    geom_histogram(binwidth=25, colour="black", fill="white") +
+                    geom_vline(aes(xintercept=mean(calories)), color="red", size=1) + 
+                    scale_x_continuous(
+                      breaks = seq(min(clean_starbucks$calories), 
+                                   max(clean_starbucks$calories), by=100
+                                   )) +
+                    labs(
+                      y = "Number of Drinks",
+                      x = "Calories (kCal)"
+                    )
+
+ggplotly(distribution_cal)
+```
+
+
+
+
+Row {.tabset .tabset-fade}
+------------------------------------
+ **Nutrition Statistics**
+```{r stat-satfat}
+summarise_nutrition <- function(data, variable) {
+  sum_nutrition <- data %>%
+    summarise(
+      Mean = mean({{ variable }}),
+      Median = median({{ variable }}),
+      Minimum = min({{ variable }}),
+      Maximum = max({{ variable }}),
+      `Std Dev` = sd({{ variable }}),
+      `Quartile 1` = quantile({{ variable }}, probs = 0.25),
+      `Quartile 3` = quantile({{ variable }}, probs = 0.75)
+    )
+  
+  sum_nutrition <- t(sum_nutrition)
+  
+  kable(sum_nutrition) |> kable_styling(full_width = FALSE) 
+}
+```
+### **Calories (kCal)**
+```{r}
+summarise_nutrition(clean_starbucks, calories)
+```
+
+### **Total Fat (g)**
+```{r}
+summarise_nutrition(clean_starbucks, total_fat_g)
+```
+
+### **Trans Fat  (g)**
+```{r}
+summarise_nutrition(clean_starbucks, trans_fat_g)
+```
+
+### **Saturated Fat (g)**
+```{r}
+summarise_nutrition(clean_starbucks, saturated_fat_g)
+```
+
+### **Cholesterol (mg)**
+```{r}
+summarise_nutrition(clean_starbucks, cholesterol_mg)
+```
+
+### **Sodium (mg)**
+```{r}
+summarise_nutrition(clean_starbucks, sodium_mg)
+```
+
+### **Carbohydrates (g)**
+```{r}
+summarise_nutrition(clean_starbucks, total_carbs_g)
+```
+
+### **Fiber (g)**
+```{r}
+summarise_nutrition(clean_starbucks, fiber_g)
+```
+
+### **Sugar (g)**
+```{r}
+summarise_nutrition(clean_starbucks, sugar_g)
+```
+
+### **Caffeine (mg)**
+```{r}
+summarise_nutrition(clean_starbucks, caffeine_mg)
+```
+
+
+
+Row {.tabset .tabset-fade}
+------------------------------------
+ **Comparison of the Amount of Nutrients in Different Drink Sizes**
+```{r rel-drinknut}
+boxplot_nutrition <- function(data, variable, y_name){
+  bplot <- ggplot(data, aes(x = size, y = {{ variable }}, fill = size)) +
+    geom_boxplot(alpha = 0.3) +
+    theme(legend.position = "none") +
+    scale_fill_brewer(palette = "Pastel2") +
+    labs(
+      x = "Size Type",
+      y = y_name
+    )
+  
+  ggplotly(bplot)
+}
+```
+
+### **Calories (kCal)**
+```{r}
+boxplot_nutrition(clean_starbucks, calories, "Calories (kCal)")
+```
+
+### **Total Fat (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, total_fat_g, "Total Fat (g)")
+```
+
+### **Trans Fat (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, trans_fat_g, "Trans Fat (g)")
+```
+
+### **Saturated Fat (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, saturated_fat_g, "Saturated Fat (g)")
+```
+
+### **Cholesterol (mg)**
+```{r}
+boxplot_nutrition(clean_starbucks, cholesterol_mg, "Cholesterol (mg)")
+```
+
+### **Sodium (mg)**
+```{r}
+boxplot_nutrition(clean_starbucks, sodium_mg, "Sodium (mg)")
+```
+
+### **Carbohydrates (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, total_carbs_g, "Total Carbs (g)")
+```
+
+### **Fiber (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, fiber_g, "Fiber (g)")
+```
+
+### **Sugar (g)**
+```{r}
+boxplot_nutrition(clean_starbucks, sugar_g, "Sugar (g)")
+```
+
+### **Caffeine (mg)**
+```{r}
+boxplot_nutrition(clean_starbucks, caffeine_mg, "Caffine (mg)")
+```
+
+
+
+Row
+------------------------------------
+### **The Effect of Other Nutrition Content and Serve Size on Calories**
+```{r}
+lm(calories ~ serv_size_m_l + total_fat_g + cholesterol_mg + sodium_mg + total_carbs_g, data = clean_starbucks) |> summary()
+```
+The model is represented as
+$$\widehat{Calories} = 9.377 + \underset{0.0004}{0.0133}\text{ ServeSize} + 
+\underset{0.188}{9.016}\text{ TotalFat} + \underset{0.059}{0.337}\text{ Cholesterol}
++ \underset{0.010}{0.074}\text{ Sodium} + \underset{0.046}{3.756}\text{ Carbs} \\
+n=1116, \enspace R^2=0.9832$$
+
+
+
+Row {.tabset .tabset-fade}
+------------------------------------
+
+```{r mean-cal}
+mean_cal <- clean_starbucks |> 
+                    group_by(product_name) |> 
+                      summarise(avg_cal = mean(calories)) |> 
+                        arrange(desc(avg_cal))
+```
+
+### **Top 10 Drinks with the Highest Calories**
+```{r}
+head(mean_cal, 10) |> rename(`Average Calories (kCal)` = avg_cal, `Product Name` = product_name) |> 
+  kable() |> 
+    kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+### **Top 10 Drinks with the Lowest Calories**
+```{r}
+tail(mean_cal, 10) |> rename(`Average Calories (kCal)` = avg_cal, `Product Name` = product_name) |> 
+  kable() |> 
+    kable_styling(bootstrap_options = c("hover", "striped"))
+```
+
+
+
+Column {.sidebar data-width=400}
+----
+> **Distribution of Calories**
+
+* The distribution of calories in Starbucks drinks are positively skewed
+* Most of the drinks lie within the 150-300 calorie range
+
+
+***
+
+
+> **Nutrition Statistics**
+
+* The average amount of calories is 234kCal and the median is 220kCal, so 
+the average amount is not far off from the median.
+* The drink with the highest calorie count contains 640kCal, whereas the drink
+with the lowest calorie count contains no calories.
+* The IQR of calories is between 140 to 320kCal.
+* The average amount of cholesterol is 15.6g, the median is 5g and the highest 
+cholesterol amount is 75g.
+* The mean and median sodium in a drink are not too far from each other at 143mg
+and 135mg respectively.
+* The average amount of fiber in a drink is 0.89g and the IQR is between 0 to 1g.
+* The average drink contains 36g of sugar and the IQR is between 19 to 49g.
+* The average drink contains 89.7mg of caffeine and the drink with the highest.
+amount of caffeine contains 475mg.
+
+
+***
+
+
+> **Nutrition Variation in Drink Sizes**
+
+* Trenta is the largest serve size that Starbuck offers, however, most of the
+drinks available in trenta size surprisingly have less calories and other 
+nutrition components compared to grande (third largest size) and venti (
+second largest size). 
+* There is an outlier in the calories of a drink in trenta size; 
+one of the drinks have an extremely low calorie amount at 5 kCal.
+* In general, as the serve size becomes larger, the amount of nutrition
+components also increase (except for trenta).
+* In general, venti serve size has the largest amount of nutrition
+and either short or trenta serve size contains the least amount of nutrition.
+* The reason trenta may not align with expectations is that this serve size is
+only served for cold drinks.
+
+
+***
+
+
+> **Calorie Model**
+
+* 98.32% of the sample variation of calories in Starbuck drinks can be explained
+by the variation in serve size in millilitres, amount of total fat, cholesterol,
+sodium and carbohydrates.
+* Fat and carbohydrates are predicted to have a significant effect on the average .
+amount of calories in Starbuck drinks while holding other nutrition components
+constant.
+* The serve size is predicted to have an insignificant effect on the average
+amount of calories in Starbuck drinks.
+* All regressors are individually significant at the 1% significance level.
+* Variables such as saturated fat, trans fat, fiber and sugar have been excluded
+from the model to avoid near multicollinearity (as these nutrition components
+relate to either total fat or carbohydrates).
+
+
+***
+
+
+> **High and Low Calorie Drinks**
+
+* The drinks with the highest calorie count tend to have some form of
+confectionary product within them (e.g., chocolate, caramel, vanilla).
+* Most of these high calories drinks are either mocha or frappuccino.
+* The drinks with the lowest calories count are a variation of brewed tea.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Question 2
+===================================== 
+
+
+
+
+Row
+------------------------------------
+### **Summary Statistics for Milk**
+```{r}
+total_whip <- clean_starbucks |> filter(whip == TRUE) |> nrow()
+total_drinks <- clean_starbucks |> nrow()
+```
+
+```{r}
+clean_starbucks |> 
+  group_by(milk) |> 
+  summarise(
+    Number = n(),
+    Proportion = percent(n()/total_drinks, accuracy = 0.1)
+  ) |> 
+  mutate(milk = case_when(
+    milk == "nonfat" ~ "Non Fat",
+    milk == "2%_fat" ~ "2% Fat",
+    milk == "coconut" ~ "Coconut",
+    milk == "soy" ~ "Soy",
+    milk == "whole" ~ "Whole",
+    milk == "no_milk" ~ "No Milk",
+  )) |> 
+  rename(`Milk Type` = milk) |> 
+  arrange(desc(Number)) |> 
+  kable() |> 
+    kable_styling(bootstrap_options = c("hover", "striped")) 
+```
+
+
+
+Row {.tabset .tabset-fade}
+------------------------------------
+**Nutrition in Whip and Non-whip Drinks**
+```{r}
+whip_nutrition <- function(data, variable, y_name){
+  data$whip_label <- ifelse(data$whip, "Whipped", "Not Whipped")
+
+  bplot <- ggplot(data, aes(
+    x = whip_label,
+    y = {{ variable }},
+    fill = whip_label
+  )) +
+    geom_boxplot(alpha = 0.3) +
+    theme(legend.position = "none") +
+    labs(
+      x = "",
+      y = y_name
+    )
+
+  ggplotly(bplot)
+}
+```
+### **Calories (kCal)**
+```{r}
+whip_nutrition(clean_starbucks, calories, "Calories (kCal)")
+```
+
+### **Trans Fat (g)**
+```{r}
+whip_nutrition(clean_starbucks, trans_fat_g, "Trans Fat (g)")
+```
+
+### **Saturated Fat (g)**
+```{r}
+whip_nutrition(clean_starbucks, saturated_fat_g, "Saturated Fat (g)")
+```
+
+### **Cholesterol (mg)**
+```{r}
+whip_nutrition(clean_starbucks, cholesterol_mg, "Cholesterol (mg)")
+```
+
+### **Sodium (mg)**
+```{r}
+whip_nutrition(clean_starbucks, sodium_mg, "Sodium (mg)")
+```
+
+### **Carbohydrates (g)**
+```{r}
+whip_nutrition(clean_starbucks, total_carbs_g, "Total Carbs (g)")
+```
+
+### **Fiber (g)**
+```{r}
+whip_nutrition(clean_starbucks, fiber_g, "Fiber (g)")
+```
+
+### **Sugar (g)**
+```{r}
+whip_nutrition(clean_starbucks, sugar_g, "Sugar (g)")
+```
+
+
+
+Row 
+------------------------------------
+### **The Effect of Whip Cream on Calorie Content**
+```{r}
+lm (calories ~ whip, data=clean_starbucks) |> summary()
+```
+The model is represented as:
+$$ \widehat{Calories} = 188.53 + \underset{7.57}{182.69}\text{Whip} \\ n = 1116, R^2 = 0.3436$$
+where whip is a dummy variable which represents the presence of whip cream (whip=1)
+or not (whip=0).
+
+
+
+Row 
+------------------------------------
+### **The Effect of Milk Type on Calorie Content**
+```{r}
+lm (calories ~ milk, data=clean_starbucks) |> summary()
+```
+
+The model is represented as:
+$$ \widehat{Calories} = 74.40 + \underset{12.32}{74.4}\text{NonFat} + 
+\underset{12.75}{115.17}\text{TwoPercentFat} + \underset{12.75}{201.95}\text{Soy} + 
+ \underset{12.75}{171.95}\text{Coconut} + \underset{12.75}{223.51}\text{Whole} 
+ \\ n = 1116, R^2 = 0.2521$$
+The variables listed here are dummy variables and the base category is "no milk". 
+The variable "no milk" is not included to avoid the dummy variable trap.
+
+
+
+Row {.tabset .tabset-fade}
+------------------------------------
+**Nutritional Content in Different Milk Types**
+```{r }
+milk_nutrition = function(data, variable, y_name){
+  bplot <- 
+    data |>
+      mutate(milk = case_when(
+        milk == "nonfat" ~ "Non Fat",
+        milk == "2%_fat" ~ "2% Fat",
+        milk == "coconut" ~ "Coconut",
+        milk == "soy" ~ "Soy",
+        milk == "whole" ~ "Whole",
+        milk == "no_milk" ~ "No Milk",)) |> 
+    
+          ggplot(aes(x = milk, y = {{ variable }}, fill=milk)) +
+          geom_boxplot(alpha = 0.3) +
+                    theme(legend.position = "none") +
+          scale_fill_brewer(palette = "Pastel2") +
+          labs(
+            x = "Milk Type",
+            y = y_name
+          )
+  
+  ggplotly(bplot)
+}
+```
+### **Calories (kCal)**
+```{r}
+milk_nutrition(clean_starbucks, calories, "Calories (kCal)")
+```
+
+### **Total Fat (g)**
+```{r}
+milk_nutrition(clean_starbucks, total_fat_g, "Total Fat (g)")
+```
+
+### **Trans Fat (g)**
+```{r}
+milk_nutrition(clean_starbucks, trans_fat_g, "Trans Fat (g)")
+```
+
+### **Saturated Fat (g)**
+```{r}
+milk_nutrition(clean_starbucks, saturated_fat_g, "Saturated Fat (g)")
+```
+
+### **Cholesterol (mg)**
+```{r}
+milk_nutrition(clean_starbucks, cholesterol_mg, "Cholesterol (mg)")
+```
+
+### **Sodium (mg)**
+```{r}
+milk_nutrition(clean_starbucks, sodium_mg, "Sodium (mg)")
+```
+
+### **Carbohydrates (g)**
+```{r}
+milk_nutrition(clean_starbucks, total_carbs_g, "Total Carbs (g)")
+```
+
+### **Fiber (g)**
+```{r}
+milk_nutrition(clean_starbucks, fiber_g, "Fiber (g)")
+```
+
+### **Sugar (g)**
+```{r}
+milk_nutrition(clean_starbucks, sugar_g, "Sugar (g)")
+```
+
+### **Caffeine (mg)**
+```{r}
+milk_nutrition(clean_starbucks, caffeine_mg, "Caffine (mg)")
+```
+
+
+
+Column {.sidebar data-width=400}
+----
+> **Impact of Whip Cream**
+
+* The proportion of drinks with whip cream is `r total_whip/total_drinks`.
+* The boxplots shows us that the presence of whip cream generally increases the 
+amount of nutrition content in the drink.
+* In the model, the presence of whip cream is predicted to increase the amount
+of calories in a drink by 183kCal on average compared to a drink without whip
+cream.
+* The regressor whip cream is significant at the 5% significance level.
+
+
+***
+
+
+> **Milk Model**
+
+* In the summary statistics, non fat milk appears to be the most common milk 
+type, whereas no milk is the least common milk type
+* In the model, it is predicted that a drink with no milk has 74.4 kCal on average.
+The other milk choices unsurprisingly increases the amount of calories in the
+drink.
+* Whole milk is predicted to have the largest increase in calories compared to the
+other milk types. It is predicted that a drink with whole milk has 297.91 kCal 
+on average. This is roughly four times larger in calorie amount compared to no milk.
+* Unsurprisingly, nonfat milk is predicted to have a less pronounced effect on 
+calorie amount compared to 2% fat milk on average.
+* Soy milk and coconut milk are predicted to have a more pronounced effect on 
+calorie amount compared to the low-fat milk types.
+
+
+***
+
+
+> **Nutrition Content in Different Types of Milk**
+
+* The no milk type has some outliers with very high calorie count, which are
+larger than the median calorie amount of other milk types; these outliers have
+a calorie amount between 360-450kCal
+* Unsurprisingly, non fat milk has less total fat compared to 2% fat milk. However,
+there is an outlier in one of the non fat milk which contains 20g of total fat.
+This may be due to some other ingredient added into the drink. 
+* Whole milk generally has higher cholesterol compared to the other milk options.
+Whole milk has an IQR of 15-45g of cholesterol.
+* The IQR and median of sodium, carbohydrates, fiber and sugar are similar
+in terms of milk types that are not "no milk" possess similar medians and IQR, and
+no milk tends to be lower compared to the rest. This may be due to the fact
+that fiber and sugar fall under carbohydrates, so they will exhibit a similar 
+pattern. 
+* The choice of milk types do not lead to a significant change in the amount of 
+fiber taken.
+* Surprisingly, no milk types contains some outliers with a high amount of caffeine 
+(roughly 380-475mg).
+
+
+
+
+
+
+
+
+
+
+Conclusion & References
+===================================== 
+
+
+
+Row 
+------------------------------------
+### **Conclusion**
+
+**Q1 - Variation in Calories and Key Nutrients in Starbuck Drinks** &nbsp;  
+
+In the analysis, it was found that drinks with larger serve size generally have
+higher amounts of calories and key nutrients compared to smaller serve sizes. 
+This was expected, however, the largest serve size, trenta, did not follow this 
+pattern. This may be due to the types of drinks that are not available in trenta
+size. Additionally, drinks that contained confectionary products (e.g., chocolate,
+caramel) were found to have a high amounts of calories, whereas brewed teas contained
+no calories at all. 
+
+The distribution of calories are positively skewed and it was found that the middle
+50% of calories of drinks lie between 140-320. According to the Washington State
+Department of Social and Health Services (n.d.), 140-320 calories is considered to
+be a moderate amount. The average amount of cholesterol is 15.6g which is around
+1/20th of the maximum amount recommended per day (UCSF Health, 2023). The average
+amount of sodium is 143mg and that is an adequate amount considering that adults
+need between 460-920mg of sodium per day to function (Reading Food Nutrition Labels, 
+n.d.). The average drink contains 36g of sugar, which is already more than half of 
+the recommended limit (Health Direct, n.d.). Furthermore, the average drink 
+contains 89.7mg of caffeine which covers 22.5% of the recommended limit of caffeine
+intake (FDA, n.d.).
+
+The model created shows that drinks high in fat and carbohydrates generally have a 
+higher calorie count compared to drinks low in fat and carbohydrates. 
+
+Therefore, if a person wants to buy a drink from Starbucks and they are health 
+conscious, it is recommended for them to buy a maximum of one drink for themselves
+and the drink should be a variation of tea. 
+
+
+***
+
+
+**Q2 - Whip Cream and Milk** &nbsp;  
+
+In the two models built, it was found that drinks with whip cream significantly
+contained a higher calorie amount compared to drinks without cream. It was predicted
+that on average, a drink with whip cream added would have an additional 183kCal
+compared to drinks without whip cream.
+
+Furthermore, the model built for examining the effects of different milk types
+on calorie showed that no milk type resulted in drinks with low calorie amount, 
+whereas whole milk type resulted in drinks with high calorie amount. It was
+predicted that whole milk increases the calorie amount by 224kCal compared to 
+drinks with no milk. 
+
+Additionally, some key nutrients such as carbohydrates, sodium, fiber and sugar
+were not significantly affected by the milk type, other than the "no milk", in which
+case, it would result in less key nutrients. However, milk type does have an affect
+on the intake of total fat and cholesterol with whole milk generally increasing
+the amount of these key nutrients. 
+
+Therefore, if a person wants to buy a drink from Starbucks and they are health
+conscious, it is recommended for them to buy a drink with no milk and no whip
+cream. 
+
+
+
+Row 
+------------------------------------
+### **References** &nbsp;  
+
+FDA. (n.d.). Retrieved from https://www.fda.gov/consumers/consumer-updates/spilling-beans-how-much-caffeine-too-much#. &nbsp;  
+
+Health Direct. (n.d.). Retrieved from https://www.healthdirect.gov.au/sugar#. &nbsp;  
+
+Reading Food Nutrition Labels. (n.d.). Retrieved from https://www.dshs.wa.gov/sites/default/files/ALTSA/stakeholders/documents/duals/toolkit/Reading%20Food%20Nutrition%20Labels.pdf &nbsp;  
+
+Salt and sodium (N.d.). Retrieved from https://www.healthdirect.gov.au/salt &nbsp;  
+
+UCSF Health. (2023). Retrieved from https://www.ucsfhealth.org/education/cholesterol-content-of-foods#. &nbsp;  
+
+[datasetsource]: https://github.com/rfordatascience/tidytuesday/tree/master
